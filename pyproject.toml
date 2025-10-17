@@ -1,0 +1,18 @@
+[project]
+name = "sps-genai"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi[standard]>=0.116.1",
+    "jupyter>=1.1.1",
+    "numpy>=2.3.3",
+    "pip>=25.2",
+    "pydantic>=2.11.9",
+    "spacy>=3.8.7",
+    "torch>=2.8.0",
+    "torchvision>=0.24.0",
+]
+[tool.uv.dependencies]
+torch = { version = "2.8.0", extras = ["cpu"] }
