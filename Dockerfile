@@ -26,11 +26,11 @@ RUN uv sync --frozen
 RUN uv run python -m spacy download en_core_web_lg
 
 # Copy application code
-COPY ./app /code/app
+COPY ./helper_lib /code/helper_lib
 
 # Clean up unnecessary files
 RUN find . -name "*.pyc" -delete
 RUN find . -name "__pycache__" -type d -exec rm -r {} +
 
 # Command to run FastAPI with uv
-CMD ["uv", "run", "fastapi", "run", "app/main.py", "--port", "80"]
+CMD ["uv", "run", "fastapi", "run", "helper_lib/main.py", "--port", "80"]

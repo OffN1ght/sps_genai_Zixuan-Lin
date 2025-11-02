@@ -6,6 +6,5 @@ dist/
 wheels/
 *.egg-info
 data/
-helper_lib/
 # Virtual environments
 .venv
