@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional
+from pydantic import Field
 import io
 import torch
 import torch.nn as nn
@@ -38,13 +39,26 @@ def _startup():
 
 
 class TrainRequest(BaseModel):
-    data_dir: str = "data"
-    batch_size: int = 128
-    epochs: int = 5
-    lr: float = 2e-4
-    betas: Optional[List[float]] = None
-    z_dim: int = 100
-    save_path: str = CHECKPOINT
+    data_dir: str = Field("data", description="Path for MNIST dataset (will auto-download if missing)")
+    batch_size: int = Field(128, description="Batch size for training")
+    epochs: int = Field(5, description="Number of training epochs")
+    lr: float = Field(0.0002, description="Learning rate for Adam optimizer")
+    betas: List[float] = Field([0.5, 0.999], description="Betas for Adam optimizer (momentum terms)")
+    z_dim: int = Field(100, description="Dimension of latent noise vector")
+    save_path: str = Field("checkpoints/gan_mnist.pt", description="Path to save trained model")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "data_dir": "data",
+                "batch_size": 128,
+                "epochs": 5,
+                "lr": 0.0002,
+                "betas": [0.5, 0.999],
+                "z_dim": 100,
+                "save_path": "checkpoints/gan_mnist.pt"
+            }
+        }
 
 class GenerateRequest(BaseModel):
     num_samples: int = 36
