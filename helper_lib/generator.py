@@ -1,6 +1,7 @@
 import math
 import torch
 from helper_lib.trainer import make_beta_schedule
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 def generate_samples(
     model,
@@ -222,3 +223,69 @@ def generate_energy_samples(
             idx += 1
 
     return grid.cpu()
+
+##gpt2 text generation
+_LLM_MODEL = None
+_LLM_TOKENIZER = None
+
+
+def load_finetuned_llm(
+    model_dir: str = "checkpoints/gpt2_squad_finetuned",
+    device: str = "cuda" if torch.cuda.is_available() else "cpu",
+):
+    global _LLM_MODEL, _LLM_TOKENIZER
+
+    if _LLM_MODEL is None or _LLM_TOKENIZER is None:
+        tokenizer = AutoTokenizer.from_pretrained(model_dir)
+        model = AutoModelForCausalLM.from_pretrained(model_dir)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+        model.config.pad_token_id = tokenizer.pad_token_id
+        model.to(device)
+        _LLM_MODEL = model
+        _LLM_TOKENIZER = tokenizer
+        print(f"[Loaded LLM] {model_dir} on {device}")
+
+    return _LLM_MODEL, _LLM_TOKENIZER
+
+
+def generate_qa_answer(
+    question: str,
+    model_dir: str = "checkpoints/gpt2_squad_finetuned",
+    max_length: int = 256,
+    temperature: float = 0.7,
+    top_p: float = 0.9,
+):
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model, tokenizer = load_finetuned_llm(model_dir=model_dir, device=device)
+
+    prompt = f"Question: {question}\nAnswer:"
+    inputs = tokenizer(prompt, return_tensors="pt").to(device)
+
+    outputs = model.generate(
+        **inputs,
+        max_length=max_length,
+        do_sample=True,
+        top_p=top_p,
+        temperature=temperature,
+        pad_token_id=tokenizer.eos_token_id,
+    )
+
+    text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+    if "Answer:" in text:
+        answer_part = text.split("Answer:", 1)[1].strip()
+    else:
+        answer_part = text.strip()
+        
+    closing = "Let me know if you have any other questions."
+    if closing in answer_part:
+        before_closing = answer_part.split(closing, 1)[0].strip()
+        answer_part = before_closing + " " + closing
+
+    prefix = "That is a great question."
+    if not answer_part.startswith(prefix):
+        answer_part = f"{prefix} {answer_part}"
+
+    return answer_part

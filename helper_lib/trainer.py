@@ -1,5 +1,7 @@
 import torch
 import torch.nn.functional as F
+
+
 def train_model(model, data_loader, criterion, optimizer, device='cpu', epochs=10):
     model.to(device)
     model.train()
@@ -146,3 +148,68 @@ def train_energy(model, data_loader, device="cpu", epochs=10, lr=1e-4):
         print(f"[Energy] Epoch {epoch+1}/{epochs} - Loss: {avg_loss:.4f}")
 
     return model
+
+from transformers import (
+    AutoModelForCausalLM,
+    DataCollatorForLanguageModeling,
+    Trainer,
+    TrainingArguments,
+)
+
+from helper_lib.data_loader import get_squad_for_gpt2
+
+
+def finetune_gpt2_on_squad(
+    base_model_name: str = "openai-community/gpt2",
+    output_dir: str = "checkpoints/gpt2_squad_finetuned",
+    num_train_epochs: int = 1,
+    batch_size: int = 4,
+    max_length: int = 256,
+    lr: float = 5e-5,
+):
+    datasets, tokenizer = get_squad_for_gpt2(
+        model_name=base_model_name,
+        max_length=max_length,
+    )
+    train_dataset = datasets["train"]
+    eval_dataset = datasets["validation"]
+    
+    model = AutoModelForCausalLM.from_pretrained(base_model_name)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    model.config.pad_token_id = tokenizer.pad_token_id
+
+    data_collator = DataCollatorForLanguageModeling(
+        tokenizer=tokenizer,
+        mlm=False, 
+    )
+
+    training_args = TrainingArguments(
+        output_dir=output_dir,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=batch_size,
+        num_train_epochs=1,
+        max_steps=100,
+        learning_rate=lr,
+        weight_decay=0.01,
+        logging_steps=50,
+        fp16=False,
+        save_total_limit=2,
+    )
+
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        data_collator=data_collator,
+    )
+
+    trainer.train()
+    trainer.save_model(output_dir)
+    tokenizer.save_pretrained(output_dir)
+
+    print(f"[Finetune done] Model saved to: {output_dir}")
+    
+if __name__ == "__main__":
+    finetune_gpt2_on_squad()
